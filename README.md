@@ -61,12 +61,26 @@ To specify the number of epochs:
 python -m src.main --epochs 100
 ```
 
+To force using CPU even when GPU is available:
+```bash
+python -m src.main --cpu
+```
+
 ### Model Output
 
 After training, the model and related artifacts will be saved in a timestamped directory under `models/`:
 - `model.pth`: The trained model
 - `checkpoints/`: Directory containing training checkpoints
 - `metrics/`: Directory containing evaluation metrics and visualizations
+
+### Performance Notes
+
+Performance varies significantly across hardware platforms:
+- NVIDIA GPUs with CUDA typically achieve the highest throughput (15-20 batches/sec on RTX 3070)
+- Apple Silicon (M1/M2/M3) using MPS backend is slower (around 5 batches/sec)
+- CPU training is much slower and not recommended for large datasets
+
+These differences are expected and related to hardware capabilities and backend optimizations.
 
 ## Project Structure
 

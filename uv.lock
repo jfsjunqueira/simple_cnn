@@ -1327,10 +1327,10 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.6.1" },
     { name = "scipy", specifier = "==1.15" },
     { name = "seaborn", specifier = ">=0.13.2" },
-    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
-    { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", index = "https://download.pytorch.org/whl/cu118" },
-    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
-    { name = "torchvision", marker = "sys_platform == 'linux' or sys_platform == 'win32'", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.0.0" },
+    { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.0.0", index = "https://download.pytorch.org/whl/cu118" },
+    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=0.15.0" },
+    { name = "torchvision", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=0.15.0", index = "https://download.pytorch.org/whl/cu118" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 

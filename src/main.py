@@ -133,7 +133,14 @@ def main():
     print(f"Total time:        {format_time(total_time)}")
     print(f"Training time:     {format_time(train_time)}")
     print(f"Final test acc:    {metrics['overall_accuracy']:.2f}%")
-    print(f"Best val acc:      {max(history['val_accuracy']) * 100:.2f}% (if available)")
+    
+    # Handle case where validation didn't occur (e.g. if interrupted)
+    if history['val_accuracy'] and len(history['val_accuracy']) > 0:
+        best_val_acc = max(history['val_accuracy']) * 100
+        print(f"Best val acc:      {best_val_acc:.2f}%")
+    else:
+        print("Best val acc:      N/A (no validation performed)")
+    
     print(f"Results saved in:  {model_dir}")
 
 if __name__ == "__main__":
