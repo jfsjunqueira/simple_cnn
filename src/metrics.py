@@ -8,10 +8,26 @@ from torch.utils.data import DataLoader
 import os
 from .config import config
 
+def get_device():
+    """
+    Determine the best available device for training.
+    
+    Returns:
+        torch.device: The device to use for training
+    """
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        # For Apple Silicon (M1/M2/M3)
+        return torch.device('mps')
+    else:
+        return torch.device('cpu')
+
 class ModelEvaluator:
-    def __init__(self, model: torch.nn.Module, device: torch.device):
+    def __init__(self, model: torch.nn.Module, device: torch.device = None):
         self.model = model
-        self.device = device
+        self.device = device if device is not None else get_device()
+        self.model.to(self.device)
         
     def evaluate(self, data_loader: DataLoader) -> Tuple[List[int], List[int], List[float]]:
         """

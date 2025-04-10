@@ -22,12 +22,23 @@ name = "pytorch-cu118"
 url = "https://download.pytorch.org/whl/cu118"
 explicit = true
 
+[[tool.uv.index]]
+name = "pytorch-default"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.sources]
 torch = [
+  # Use CUDA for Linux/Windows
   { index = "pytorch-cu118", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  # Use default PyPI source for macOS (includes MPS support)
+  { index = "default", marker = "sys_platform == 'darwin'" },
 ]
 torchvision = [
+  # Use CUDA for Linux/Windows
   { index = "pytorch-cu118", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  # Use default PyPI source for macOS (includes MPS support)
+  { index = "default", marker = "sys_platform == 'darwin'" },
 ]
 
 [dependency-groups]
