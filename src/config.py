@@ -5,13 +5,13 @@ import os
 @dataclass
 class CNNConfig:
     # Image dimensions
-    image_height: int = 224
-    image_width: int = 224
+    image_height: int = 128
+    image_width: int = 128
     channels: int = 3  # RGB images
     
     # CNN architecture
-    conv_channels: list[int] = (32, 64, 128)  # Number of filters in each conv layer
-    fc_layers: list[int] = (512, 256)  # Fully connected layer dimensions
+    conv_channels: list[int] = (16, 32, 64)  # Number of filters in each conv layer
+    fc_layers: list[int] = (256, 128)  # Fully connected layer dimensions
     
     # Class configuration
     class_labels: List[str] = ('class_0', 'class_1', 'class_2', 'class_3', 'class_4',
@@ -19,11 +19,11 @@ class CNNConfig:
     num_classes: int = 10  # Number of output classes
     
     # Training parameters
-    batch_size: int = 32
+    batch_size: int = 64  # Increased from 32
     epochs: int = 50
     
     # Learning rate configuration
-    initial_lr: float = 0.005
+    initial_lr: float = 0.001
     min_lr: float = 1e-6
     lr_scheduler_type: str = 'cosine'  # Options: 'cosine', 'step', 'exponential'
     lr_scheduler_params: dict = None
