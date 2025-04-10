@@ -1,0 +1,12 @@
+[project]
+name = "simple-cnn"
+version = "0.1.0"
+description = "A simple CNN implementation using PyTorch"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "torchvision",
+    "pillow",
+    "numpy"
+]
