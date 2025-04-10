@@ -27,3 +27,6 @@ models/
 
 # Backup repo
 backup-repo
+
+# Others
+.DS_Store
