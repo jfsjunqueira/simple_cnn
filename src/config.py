@@ -26,6 +26,13 @@ class CNNConfig:
     min_lr: float = 1e-6
     lr_scheduler_type: str = 'cosine'  # Options: 'cosine', 'step', 'exponential'
     lr_scheduler_params: dict = None
+
+    # Dataset configuration
+    data_csv_path: str = r"C:\Users\jfsju\Projetos\simple_cnn\data\img_labels.csv"
+    train_split: float = 0.7
+    val_split: float = 0.15
+    test_split: float = 0.15
+    num_workers: int = 4
     
     def __post_init__(self):
         self.num_classes = len(self.class_labels)
@@ -35,5 +42,10 @@ class CNNConfig:
                 'step': {'step_size': 30, 'gamma': 0.1},
                 'exponential': {'gamma': 0.95}
             }[self.lr_scheduler_type]
+        
+        # Validate split ratios
+        total_split = self.train_split + self.val_split + self.test_split
+        if not 0.99 <= total_split <= 1.01:  # Allow for small floating point errors
+            raise ValueError(f"Split ratios must sum to 1.0, got {total_split}")
     
 config = CNNConfig()
