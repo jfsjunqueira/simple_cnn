@@ -22,3 +22,5 @@ data/
 # VS Code settings
 .vscode/
 
+# Trained models
+models/
