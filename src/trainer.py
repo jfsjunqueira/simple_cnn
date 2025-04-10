@@ -49,7 +49,7 @@ class CNNTrainer:
         
         # Set up mixed precision training if using CUDA
         self.use_amp = torch.cuda.is_available()
-        self.scaler = GradScaler() if self.use_amp else None
+        self.scaler = GradScaler(device=self.device) if self.use_amp else None
         
         # Setup learning rate scheduler
         if config.lr_scheduler_type == 'cosine':
