@@ -8,6 +8,7 @@ from .model import SimpleCNN
 from .trainer import CNNTrainer
 from .image_utils import create_data_loaders
 from .metrics import ModelEvaluator
+from .gpu_utils import print_gpu_memory_usage
 
 def format_time(seconds):
     return str(timedelta(seconds=int(seconds)))
@@ -17,6 +18,7 @@ def parse_args():
     parser.add_argument('--resume', type=str, help='Path to checkpoint to resume training from')
     parser.add_argument('--epochs', type=int, help='Number of epochs to train')
     parser.add_argument('--cpu', action='store_true', help='Force using CPU even if GPU is available')
+    parser.add_argument('--batch-size', type=int, help='Override batch size in config')
     return parser.parse_args()
 
 def get_device(force_cpu=False):
@@ -44,9 +46,19 @@ def main():
     # Parse command line arguments
     args = parse_args()
     
+    # Override batch size if provided
+    if args.batch_size:
+        config.batch_size = args.batch_size
+    
     # Set up device
     device = get_device(force_cpu=args.cpu)
     print(f"Using device: {device}")
+    
+    # Show GPU info if available
+    if torch.cuda.is_available() and not args.cpu:
+        print(f"CUDA Device: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA Version: {torch.version.cuda}")
+        print_gpu_memory_usage()
     
     # Create model directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -71,6 +83,7 @@ def main():
     print(f"  Training:   {num_train} images")
     print(f"  Validation: {num_val} images")
     print(f"  Test:       {num_test} images")
+    print(f"  Batch size: {config.batch_size}")
     
     # Initialize model and move to device
     print("\nInitializing model...")
@@ -81,6 +94,11 @@ def main():
     print(f"Model parameters:")
     print(f"  Total:      {total_params:,}")
     print(f"  Trainable:  {trainable_params:,}")
+    
+    # Show GPU memory after model creation
+    if torch.cuda.is_available() and not args.cpu:
+        print("\nGPU memory after model initialization:")
+        print_gpu_memory_usage()
     
     # Create trainer and evaluator
     trainer = CNNTrainer(model)
@@ -93,6 +111,7 @@ def main():
     print(f"  Batch size:    {config.batch_size}")
     print(f"  Initial LR:    {config.initial_lr}")
     print(f"  Scheduler:     {config.lr_scheduler_type}")
+    print(f"  Mixed precision: {'Yes' if torch.cuda.is_available() else 'No'}")
     
     if args.resume:
         print(f"Resuming from checkpoint: {args.resume}")
@@ -109,6 +128,11 @@ def main():
     
     train_time = time.time() - train_start
     print(f"\nTraining completed in {format_time(train_time)}")
+    
+    # Show GPU memory after training
+    if torch.cuda.is_available() and not args.cpu:
+        print("\nGPU memory after training:")
+        print_gpu_memory_usage()
     
     # Save the trained model
     model_path = os.path.join(model_dir, "model.pth")

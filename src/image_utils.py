@@ -167,29 +167,40 @@ def create_data_loaders(split_file: Optional[str] = None, save_dir: Optional[str
                 save_dir
             )
     
-    # Create data loaders
+    # Determine optimal number of workers based on CPU cores
+    num_workers = min(os.cpu_count() or 4, config.num_workers * 2)
+    
+    # Create optimized data loaders
+    # Use more workers and persistent workers for training
+    # Use pinned memory for faster CPU->GPU transfers
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.batch_size,
         shuffle=True,
-        num_workers=config.num_workers,
-        pin_memory=torch.cuda.is_available()
+        num_workers=num_workers,
+        pin_memory=torch.cuda.is_available(),
+        persistent_workers=True if num_workers > 0 else False,
+        prefetch_factor=2 if num_workers > 0 else None,
+        drop_last=True  # Drop last incomplete batch for better optimization
     )
     
+    # Use fewer workers for validation
     val_loader = DataLoader(
         val_dataset,
-        batch_size=config.batch_size,
+        batch_size=config.batch_size * 2,  # Can use larger batches for validation
         shuffle=False,
-        num_workers=config.num_workers,
-        pin_memory=torch.cuda.is_available()
+        num_workers=max(1, num_workers // 2),
+        pin_memory=torch.cuda.is_available(),
+        persistent_workers=True if num_workers > 0 else False
     )
     
     test_loader = DataLoader(
         test_dataset,
-        batch_size=config.batch_size,
+        batch_size=config.batch_size * 2,  # Can use larger batches for testing
         shuffle=False,
-        num_workers=config.num_workers,
-        pin_memory=torch.cuda.is_available()
+        num_workers=max(1, num_workers // 2),
+        pin_memory=torch.cuda.is_available(),
+        persistent_workers=True if num_workers > 0 else False
     )
     
     return train_loader, val_loader, test_loader

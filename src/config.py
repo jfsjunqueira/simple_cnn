@@ -19,7 +19,7 @@ class CNNConfig:
     num_classes: int = 10  # Number of output classes
     
     # Training parameters
-    batch_size: int = 64  # Increased from 32
+    batch_size: int = 256  # Increased to utilize more GPU memory
     epochs: int = 50
     
     # Learning rate configuration

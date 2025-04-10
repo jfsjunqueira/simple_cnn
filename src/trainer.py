@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.cuda.amp import GradScaler, autocast
 from typing import Optional, Tuple, Dict
 from tqdm import tqdm
 import time
@@ -45,6 +46,10 @@ class CNNTrainer:
         
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.initial_lr)
+        
+        # Set up mixed precision training if using CUDA
+        self.use_amp = torch.cuda.is_available()
+        self.scaler = GradScaler() if self.use_amp else None
         
         # Setup learning rate scheduler
         if config.lr_scheduler_type == 'cosine':
@@ -100,12 +105,25 @@ class CNNTrainer:
                     
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
                 
+                # Zero gradients
                 self.optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, targets)
                 
-                loss.backward()
-                self.optimizer.step()
+                # Mixed precision forward pass
+                if self.use_amp:
+                    with autocast():
+                        outputs = self.model(inputs)
+                        loss = self.criterion(outputs, targets)
+                    
+                    # Backward pass with gradient scaling
+                    self.scaler.scale(loss).backward()
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    # Standard precision pass
+                    outputs = self.model(inputs)
+                    loss = self.criterion(outputs, targets)
+                    loss.backward()
+                    self.optimizer.step()
                 
                 # Update metrics
                 total_loss += loss.item()
@@ -138,7 +156,10 @@ class CNNTrainer:
         print(f'Time: {epoch_time:.2f}s')
         print(f'Loss: {epoch_loss:.4f}')
         print(f'Accuracy: {epoch_acc:.2f}%')
-        print(f'Learning Rate: {current_lr:.6f}\n')
+        print(f'Learning Rate: {current_lr:.6f}')
+        if self.use_amp:
+            print(f'Using mixed precision: Yes')
+        print()
         
         return epoch_loss
 
