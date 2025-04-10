@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Tuple
+import os
 
 @dataclass
 class CNNConfig:
@@ -22,19 +23,25 @@ class CNNConfig:
     epochs: int = 50
     
     # Learning rate configuration
-    initial_lr: float = 0.001
+    initial_lr: float = 0.005
     min_lr: float = 1e-6
     lr_scheduler_type: str = 'cosine'  # Options: 'cosine', 'step', 'exponential'
     lr_scheduler_params: dict = None
 
     # Dataset configuration
-    data_csv_path: str = r"C:\Users\jfsju\Projetos\simple_cnn\data\img_labels.csv"
+    data_dir: str = "data"
+    data_csv_filename: str = "img_labels.csv"
     train_split: float = 0.7
     val_split: float = 0.15
     test_split: float = 0.15
     num_workers: int = 4
     
     def __post_init__(self):
+        # Set data_csv_path using platform-independent path joining
+        self.data_csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                         self.data_dir, 
+                                         self.data_csv_filename)
+        
         self.num_classes = len(self.class_labels)
         if self.lr_scheduler_params is None:
             self.lr_scheduler_params = {
