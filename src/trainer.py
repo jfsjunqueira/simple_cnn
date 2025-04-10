@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 from tqdm import tqdm
 import time
 import signal
 import sys
+import os
 from .config import config
 from .model import SimpleCNN
 from .gpu_utils import clean_gpu_memory
@@ -21,9 +22,24 @@ class GracefulKiller:
         print("\n\nReceived interrupt signal. Will stop after this epoch...")
         self.kill_now = True
 
+def get_device():
+    """
+    Determine the best available device for training.
+    
+    Returns:
+        torch.device: The device to use for training
+    """
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        # For Apple Silicon (M1/M2/M3)
+        return torch.device('mps')
+    else:
+        return torch.device('cpu')
+
 class CNNTrainer:
     def __init__(self, model: Optional[SimpleCNN] = None):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = get_device()
         self.model = model if model is not None else SimpleCNN()
         self.model.to(self.device)
         
@@ -169,9 +185,84 @@ class CNNTrainer:
         
         return val_loss, val_acc
 
+    def save_checkpoint(self, checkpoint_dir: str, epoch: int, val_acc: float,
+                      history: Dict, is_best: bool = False) -> str:
+        """
+        Save a checkpoint of the model's state to resume training later.
+        
+        Args:
+            checkpoint_dir: Directory to save the checkpoint
+            epoch: Current epoch number
+            val_acc: Current validation accuracy
+            history: Training history dictionary
+            is_best: Whether this model has the best validation accuracy so far
+            
+        Returns:
+            Path to the saved checkpoint file
+        """
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        checkpoint_file = os.path.join(checkpoint_dir, f"checkpoint_epoch_{epoch}.pth")
+        
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+            'history': history,
+            'val_acc': val_acc
+        }
+        
+        torch.save(checkpoint, checkpoint_file)
+        
+        # Also save as best model if it's the best so far
+        if is_best:
+            best_file = os.path.join(checkpoint_dir, "best_model.pth")
+            torch.save(checkpoint, best_file)
+            
+        return checkpoint_file
+    
+    def load_checkpoint(self, checkpoint_path: str) -> Tuple[int, Dict]:
+        """
+        Load a model checkpoint to resume training.
+        
+        Args:
+            checkpoint_path: Path to the checkpoint file
+            
+        Returns:
+            Tuple of (epoch to start from, training history)
+        """
+        print(f"Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        # Load model state
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.to(self.device)
+        
+        # Load optimizer and scheduler state
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        
+        # Restore optimizer state to the right device
+        for state in self.optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(self.device)
+        
+        return checkpoint['epoch'], checkpoint['history']
+
     def train(self, train_loader: DataLoader, val_loader: Optional[DataLoader] = None,
-              epochs: Optional[int] = None) -> dict:
-        """Train the model for the specified number of epochs."""
+              epochs: Optional[int] = None, checkpoint_dir: Optional[str] = None,
+              resume_from: Optional[str] = None) -> dict:
+        """
+        Train the model for the specified number of epochs.
+        
+        Args:
+            train_loader: DataLoader for training data
+            val_loader: Optional DataLoader for validation data
+            epochs: Number of epochs to train for (defaults to config.epochs)
+            checkpoint_dir: Directory to save checkpoints
+            resume_from: Path to a checkpoint file to resume training from
+        """
         epochs = epochs or config.epochs
         history = {
             'train_loss': [],
@@ -182,13 +273,22 @@ class CNNTrainer:
             'completed_epochs': 0
         }
         
+        start_epoch = 0
+        best_val_acc = 0.0
+        
+        # Resume from checkpoint if specified
+        if resume_from and os.path.exists(resume_from):
+            start_epoch, history = self.load_checkpoint(resume_from)
+            print(f"Resuming training from epoch {start_epoch + 1}")
+            # Update start_epoch to continue from the next epoch
+            start_epoch += 1
+        
         killer = GracefulKiller()
         
         try:
             # Create progress bar for epochs
-            pbar = tqdm(range(epochs), desc='Training Progress', unit='epoch')
+            pbar = tqdm(range(start_epoch, epochs), desc='Training Progress', unit='epoch')
             
-            best_val_acc = 0.0
             for epoch in pbar:
                 # Training phase
                 train_loss = self.train_epoch(train_loader, epoch, killer)
@@ -200,37 +300,34 @@ class CNNTrainer:
                     break
                 
                 # Validation phase
-                if val_loader is not None:
+                if val_loader:
                     val_loss, val_acc = self.validate(val_loader)
                     history['val_loss'].append(val_loss)
                     history['val_accuracy'].append(val_acc)
                     
-                    # Track best model
-                    if val_acc > best_val_acc:
-                        best_val_acc = val_acc
-                        print(f'New best validation accuracy: {val_acc * 100:.2f}%')
+                    # Save checkpoint
+                    if checkpoint_dir:
+                        is_best = val_acc > best_val_acc
+                        if is_best:
+                            best_val_acc = val_acc
+                        
+                        self.save_checkpoint(
+                            checkpoint_dir,
+                            epoch,
+                            val_acc,
+                            history,
+                            is_best
+                        )
                 
                 # Update learning rate
                 current_lr = self.optimizer.param_groups[0]['lr']
                 history['learning_rates'].append(current_lr)
                 self.scheduler.step()
-
+        
         except Exception as e:
             print(f"\nError during training: {str(e)}")
             self.cleanup()
             raise e
-            
-        except KeyboardInterrupt:
-            print("\nTraining interrupted by user. Cleaning up...")
-            
-        finally:
-            if history['completed_epochs'] > 0:
-                print(f'\nTraining completed for {history["completed_epochs"]} epochs!')
-                if val_loader is not None:
-                    print(f'Best validation accuracy: {best_val_acc * 100:.2f}%')
-            
-            # Clean up resources
-            self.cleanup()
         
         return history
 
